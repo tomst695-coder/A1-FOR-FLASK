@@ -52,13 +52,20 @@ def _get_b2_client():
             "متغيرات بيئة B2 غير مكتملة - تأكد من ضبط B2_ENDPOINT, B2_KEY_ID, "
             "B2_APPLICATION_KEY, B2_BUCKET_NAME على Render"
         )
-    return boto3.client(
-        "s3",
-        endpoint_url=B2_ENDPOINT,
-        aws_access_key_id=B2_KEY_ID,
-        aws_secret_access_key=B2_APPLICATION_KEY,
-        config=Config(signature_version="s3v4"),
-    )
+    # الإصلاح: استخراج region_name من endpoint تلقائياً
+import re
+region_match = re.search(r's3\.([^.]+)\.backblazeb2\.com', B2_ENDPOINT or '')
+region_name = region_match.group(1) if region_match else 'us-east-1'
+
+return boto3.client(
+    "s3",
+    endpoint_url=B2_ENDPOINT,
+    aws_access_key_id=B2_KEY_ID,
+    aws_secret_access_key=B2_APPLICATION_KEY,
+    region_name=region_name,
+    config=Config(signature_version="s3v4"),
+)
+    
 
 
 def require_api_key(view_func):
