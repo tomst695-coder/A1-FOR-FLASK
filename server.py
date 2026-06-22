@@ -47,22 +47,23 @@ JOB_TTL_SECONDS = 3600
 
 
 def _get_b2_client():
-    """ينشئ عميل boto3 متوافق مع S3 API الخاص بـ B2. يُستدعى عند كل رفع (lightweight)."""
+    """ينشئ عميل boto3 متوافق مع S3 API الخاص بـ B2.
+    يستخدم Session كما يوصي التوثيق الرسمي لـ Backblaze B2 لتجنب SignatureDoesNotMatch."""
     if not all([B2_ENDPOINT, B2_KEY_ID, B2_APPLICATION_KEY, B2_BUCKET_NAME]):
         raise RuntimeError(
             "متغيرات بيئة B2 غير مكتملة - تأكد من ضبط B2_ENDPOINT, B2_KEY_ID, "
             "B2_APPLICATION_KEY, B2_BUCKET_NAME على Render"
         )
 
-    # استخراج region_name من endpoint تلقائياً لتجنب خطأ SignatureDoesNotMatch
-    # boto3 يفترض 'us-east-1' افتراضياً لو لم تُحدد المنطقة - هذا يُفسد التوقيع
-    # مع B2 EU Central لأن المنطقة لا تتطابق
-    # مثال: https://s3.eu-central-003.backblazeb2.com → region = eu-central-003
+    # استخراج region من endpoint (مثال: eu-central-003 من s3.eu-central-003.backblazeb2.com)
     region_match = re.search(r's3\.([^.]+)\.backblazeb2\.com', B2_ENDPOINT or '')
     region_name = region_match.group(1) if region_match else 'us-east-1'
 
-    return boto3.client(
-        "s3",
+    # استخدام Session (الطريقة الرسمية الموصى بها من Backblaze للتعامل مع S3 Compatible API)
+    # هذا يضمن تطابق التوقيع مع region الصحيحة ويمنع SignatureDoesNotMatch
+    session = boto3.session.Session()
+    return session.client(
+        service_name='s3',
         endpoint_url=B2_ENDPOINT,
         aws_access_key_id=B2_KEY_ID,
         aws_secret_access_key=B2_APPLICATION_KEY,
